@@ -106,18 +106,31 @@ namespace ProjEncontraPlaca
                     ImageLockMode.ReadWrite, PixelFormat.Format24bppRgb);
             unsafe
             {
-                byte* p = (byte*)(void*)bmData.Scan0.ToPointer();
-                int stopAddress = (int)p + bmData.Stride * bmData.Height;
-                while ((int)p != stopAddress)
+                byte* p = (byte*)(void*)bmData.Scan0;
+                byte* pOrig = p; // Ponteiro original
+                int stride = bmData.Stride;
+                int width = bmp.Width;
+                int height = bmp.Height;
+
+                for (int y = 0; y < height; y++)
                 {
-                    p[0] = (byte)(.299 * p[2] + .587 * p[1] + .114 * p[0]);
-                    p[1] = p[0];
-                    p[2] = p[0];
-                    p += 3;
+                    byte* row = p + y * stride;
+                    for (int x = 0; x < width; x++)
+                    {
+                        int idx = x * 3;
+                        byte b = row[idx];
+                        byte g = row[idx + 1];
+                        byte r = row[idx + 2];
+                        byte gray = (byte)(.299 * r + .587 * g + .114 * b);
+                        row[idx] = gray;
+                        row[idx + 1] = gray;
+                        row[idx + 2] = gray;
+                    }
                 }
             }
             bmp.UnlockBits(bmData);
         }
+
 
         public void threshold(Bitmap bmp, int thresh)
         { 

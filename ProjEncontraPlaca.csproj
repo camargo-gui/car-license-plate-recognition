@@ -47,6 +47,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Caracter.cs" />
     <Compile Include="Classe.cs" />
     <Compile Include="ClassificacaoCaracteres.cs" />
     <Compile Include="Filtros.cs" />
@@ -60,6 +61,7 @@
     <Compile Include="Otsu.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Retangulo.cs" />
     <EmbeddedResource Include="frmPrincipal.resx">
       <DependentUpon>frmPrincipal.cs</DependentUpon>
     </EmbeddedResource>
