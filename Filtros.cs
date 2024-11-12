@@ -208,7 +208,7 @@ namespace ProjEncontraPlaca
             return dilatedImage;
         }
 
-        public static void encontra_placa(Bitmap imageBitmapSrc, ref Bitmap imageBitmapDest)
+        public static void encontra_placa(Bitmap imageBitmapSrc, ref Bitmap imageBitmapDest, ref String placa)
         {
             try
             {
@@ -354,12 +354,14 @@ namespace ProjEncontraPlaca
 
                 // Ordenar caracteres pela posição X para manter a ordem correta
                 caracteres.Sort((a, b) => a.CentroX.CompareTo(b.CentroX));
-
                 //desenhar retângulos verdes na placa
-                foreach (var caractere in caracteres)
-                {
+                for(int i = 0; i < caracteres.Count; i++) {
                     // Desenhar retângulo ao redor do caractere na imagem da placa
-                    desenhaRetangulo(dilatedPlateImage, caractere.Pini, caractere.Pfim, Color.FromArgb(0, 255, 0));
+                    desenhaRetangulo(dilatedPlateImage, caracteres[i].Pini, caracteres[i].Pfim, Color.FromArgb(0, 255, 0));
+                    ClassificacaoCaracteres classificaChar = new ClassificacaoCaracteres(caracteres[i].Imagem.Height, caracteres[i].Imagem.Width, i > 2 ? 1 : 2, 'S');
+                    String transicao = classificaChar.retornaTransicaoHorizontal(caracteres[i].Imagem);
+                    char caractere = classificaChar.reconheceCaractereTransicao_2pixels(transicao);
+                    placa = placa + caractere;
                 }
 
                 // Atualizar imageBitmapDest com a imagem da placa processada
