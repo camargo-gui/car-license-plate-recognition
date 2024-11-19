@@ -248,6 +248,14 @@ namespace ProjEncontraPlaca
                     }
                 }
 
+                for (int i = 0; i < retangulos.Count; i++)
+                {
+                    desenhaRetangulo(imageBitmapDestTemp, retangulos[i].Pini, retangulos[i].Pfim, Color.FromArgb(0, 255, 0));
+                }
+
+                //salvar imagem
+                imageBitmapDestTemp.Save("imagemretangulos.jpg", ImageFormat.Jpeg);
+
                 // Mensagem de depuração
                 Console.WriteLine("Número de retângulos detectados: " + retangulos.Count);
 
@@ -260,7 +268,11 @@ namespace ProjEncontraPlaca
                 // Agrupar retângulos com base na proximidade
                 List<List<Retangulo>> grupos = new List<List<Retangulo>>();
                 float distanciaMaximaHorizontal = 100;
-                float distanciaMaximaVertical = 20;
+                float distanciaMaximaVertical = 45;
+
+                float tamanhoAltura = imageBitmapSrc.Height / 3;
+                float tamanhoLargura = imageBitmapSrc.Width / 3;
+
 
                 foreach (var ret in retangulos)
                 {
@@ -274,9 +286,16 @@ namespace ProjEncontraPlaca
 
                         if (distanciaHorizontal <= distanciaMaximaHorizontal && distanciaVertical <= distanciaMaximaVertical)
                         {
-                            grupo.Add(ret);
-                            adicionadoAoGrupo = true;
-                            break;
+                            if (!(ret.Pfim.X < tamanhoLargura && ret.Pfim.Y < tamanhoAltura || ret.Pfim.X < tamanhoLargura &&
+                                ret.Pfim.Y > imageBitmapSrc.Height - tamanhoAltura || 
+                                ret.Pfim.X > imageBitmapSrc.Width - tamanhoLargura && ret.Pfim.Y < tamanhoAltura ||
+                                ret.Pfim.X > imageBitmapSrc.Width - tamanhoLargura && ret.Pfim.Y > imageBitmapSrc.Height - tamanhoAltura
+                                ))
+                            {
+                                grupo.Add(ret);
+                                adicionadoAoGrupo = true;
+                                break;
+                            }
                         }
                     }
                     if (!adicionadoAoGrupo)
@@ -303,9 +322,9 @@ namespace ProjEncontraPlaca
 
                 // Ajustar os limites para evitar erros de índice
                 minX = Math.Max(minX - 60, 0);
-                minY = Math.Max(minY - 5, 0);
+                minY = Math.Max(minY - 15, 0);
                 maxX = Math.Min(maxX + 5, imageBitmapSrc.Width - 1);
-                maxY = Math.Min(maxY + 5, imageBitmapSrc.Height - 1);
+                maxY = Math.Min(maxY + 15, imageBitmapSrc.Height - 1);
 
                 // Extrair a região da placa da imagem original
                 Rectangle plateRect = new Rectangle(minX, minY, maxX - minX, maxY - minY);
@@ -355,6 +374,11 @@ namespace ProjEncontraPlaca
                 // Ordenar caracteres pela posição X para manter a ordem correta
                 caracteres.Sort((a, b) => a.CentroX.CompareTo(b.CentroX));
                 //desenhar retângulos verdes na placa
+                  
+                if (caracteres.Count > 7) {
+                    caracteres.RemoveRange(0, caracteres.Count - 7);
+                }
+
                 for(int i = 0; i < caracteres.Count; i++) {
                     // Desenhar retângulo ao redor do caractere na imagem da placa
                     desenhaRetangulo(dilatedPlateImage, caracteres[i].Pini, caracteres[i].Pfim, Color.FromArgb(0, 255, 0));
