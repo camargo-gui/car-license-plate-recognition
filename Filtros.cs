@@ -217,7 +217,7 @@ namespace ProjEncontraPlaca
 
                 Otsu otsu = new Otsu();
 
-                // Converter para escala de cinza e aplicar Otsu na imagem inteira
+                // Clonar imagem original
                 Bitmap imageBitmapDestTemp = (Bitmap)imageBitmapSrc.Clone();
                 otsu.Convert2GrayScaleFast(imageBitmapDestTemp);
 
@@ -248,31 +248,28 @@ namespace ProjEncontraPlaca
                     }
                 }
 
+                // Desenhar retângulos para debug
                 for (int i = 0; i < retangulos.Count; i++)
                 {
                     desenhaRetangulo(imageBitmapDestTemp, retangulos[i].Pini, retangulos[i].Pfim, Color.FromArgb(0, 255, 0));
                 }
-
-                //salvar imagem
                 imageBitmapDestTemp.Save("imagemretangulos.jpg", ImageFormat.Jpeg);
 
-                // Mensagem de depuração
                 Console.WriteLine("Número de retângulos detectados: " + retangulos.Count);
 
                 if (retangulos.Count == 0)
                     return; // Nenhum caractere detectado
 
-                // Ordenar retângulos por CentroX (posição horizontal)
+                // Ordenar retângulos por CentroX
                 retangulos.Sort((a, b) => a.CentroX.CompareTo(b.CentroX));
 
-                // Agrupar retângulos com base na proximidade
+                // Agrupar retângulos
                 List<List<Retangulo>> grupos = new List<List<Retangulo>>();
                 float distanciaMaximaHorizontal = 100;
                 float distanciaMaximaVertical = 45;
 
                 float tamanhoAltura = imageBitmapSrc.Height / 3;
                 float tamanhoLargura = imageBitmapSrc.Width / 3;
-
 
                 foreach (var ret in retangulos)
                 {
@@ -287,10 +284,9 @@ namespace ProjEncontraPlaca
                         if (distanciaHorizontal <= distanciaMaximaHorizontal && distanciaVertical <= distanciaMaximaVertical)
                         {
                             if (!(ret.Pfim.X < tamanhoLargura && ret.Pfim.Y < tamanhoAltura || ret.Pfim.X < tamanhoLargura &&
-                                ret.Pfim.Y > imageBitmapSrc.Height - tamanhoAltura || 
+                                ret.Pfim.Y > imageBitmapSrc.Height - tamanhoAltura ||
                                 ret.Pfim.X > imageBitmapSrc.Width - tamanhoLargura && ret.Pfim.Y < tamanhoAltura ||
-                                ret.Pfim.X > imageBitmapSrc.Width - tamanhoLargura && ret.Pfim.Y > imageBitmapSrc.Height - tamanhoAltura
-                                ))
+                                ret.Pfim.X > imageBitmapSrc.Width - tamanhoLargura && ret.Pfim.Y > imageBitmapSrc.Height - tamanhoAltura))
                             {
                                 grupo.Add(ret);
                                 adicionadoAoGrupo = true;
@@ -300,93 +296,75 @@ namespace ProjEncontraPlaca
                     }
                     if (!adicionadoAoGrupo)
                     {
-                        // Iniciar um novo grupo
                         grupos.Add(new List<Retangulo> { ret });
                     }
                 }
 
-                // Mensagem de depuração
                 Console.WriteLine("Número de grupos formados: " + grupos.Count);
 
-                // Encontrar o grupo com mais retângulos (provavelmente a placa)
                 var grupoPlaca = grupos.OrderByDescending(g => g.Count).First();
-
-                // Mensagem de depuração
                 Console.WriteLine("Tamanho do maior grupo (grupo da placa): " + grupoPlaca.Count);
 
-                // Calcular o bounding box da placa
                 int minX = grupoPlaca.Min(r => r.Pini.X);
                 int minY = grupoPlaca.Min(r => r.Pini.Y);
                 int maxX = grupoPlaca.Max(r => r.Pfim.X);
                 int maxY = grupoPlaca.Max(r => r.Pfim.Y);
 
-                // Ajustar os limites para evitar erros de índice
                 minX = Math.Max(minX - 60, 0);
                 minY = Math.Max(minY - 15, 0);
                 maxX = Math.Min(maxX + 5, imageBitmapSrc.Width - 1);
                 maxY = Math.Min(maxY + 15, imageBitmapSrc.Height - 1);
 
-                // Extrair a região da placa da imagem original
                 Rectangle plateRect = new Rectangle(minX, minY, maxX - minX, maxY - minY);
-                Bitmap plateImage = imageBitmapSrc.Clone(plateRect, imageBitmapSrc.PixelFormat);
+                Bitmap plateImageOriginal = imageBitmapSrc.Clone(plateRect, imageBitmapSrc.PixelFormat);
 
-                // Aplicar Otsu na região da placa
-                otsu.Convert2GrayScaleFast(plateImage);
-                int plateThreshold = otsu.getOtsuThreshold(plateImage);
-                otsu.threshold(plateImage, plateThreshold);
+                // Primeiro processamento na placa
+                Bitmap dilatedPlateImage = ProcessarPlaca(plateImageOriginal, otsu);
 
-                // Aplicar Dilatação Condicional para preencher e espessar os caracteres
-                Bitmap dilatedPlateImage = ConditionalDilation(plateImage, whitePixelDensityThreshold: 0.15);
+                // Segmentar e reconhecer caracteres
+                List<Caracter> caracteres = SegmentarEReconhecerCaracteres(dilatedPlateImage);
 
-                // Reprocessar a região da placa dilatada para segmentação de caracteres
-                List<Point> plateListaPini = new List<Point>();
-                List<Point> plateListaPfim = new List<Point>();
-
-                Bitmap plateImageClone = (Bitmap)dilatedPlateImage.Clone();
-                Filtros.segmentar8conectado(plateImageClone, dilatedPlateImage, plateListaPini, plateListaPfim);
-
-                // Reconhecer caracteres
-                StringBuilder plateNumber = new StringBuilder();
-                List<Caracter> caracteres = new List<Caracter>();
-
-                for (int i = 0; i < plateListaPini.Count; i++)
-                {
-                    int charAltura = plateListaPfim[i].Y - plateListaPini[i].Y;
-                    int charLargura = plateListaPfim[i].X - plateListaPini[i].X;
-
-                    // Ajustar esses limiares conforme necessário
-                    if (charAltura > 10 && charAltura < 100 && charLargura > 2 && charLargura < 50)
-                    {
-                        // Adicionar à lista de caracteres
-                        caracteres.Add(new Caracter
-                        {
-                            Pini = plateListaPini[i],
-                            Pfim = plateListaPfim[i],
-                            CentroX = (plateListaPini[i].X + plateListaPfim[i].X) / 2.0f,
-                            Imagem = Filtros.segmentaRoI(dilatedPlateImage, plateListaPini[i].X, plateListaPini[i].Y, charLargura, charAltura)
-                        });
-                    }
-                }
-
-                // Mensagem de depuração
                 Console.WriteLine("Número de caracteres detectados na placa: " + caracteres.Count);
 
-                // Ordenar caracteres pela posição X para manter a ordem correta
-                caracteres.Sort((a, b) => a.CentroX.CompareTo(b.CentroX));
-                //desenhar retângulos verdes na placa
-                  
-                if (caracteres.Count > 7) {
+                // Se apenas 6 caracteres foram reconhecidos, tente o recorte e reprocessamento
+                if (caracteres.Count == 5 || caracteres.Count == 6)
+                {
+                    // Encontrar linha inferior máxima dos caracteres
+                    int maxYBottom = caracteres.Max(c => c.Pfim.Y);
+                    // Recortar a placa original até maxYBottom+margem
+                    int novoMaxY = Math.Min(maxYBottom, plateImageOriginal.Height - 1);
+                    Rectangle novoRecorte = new Rectangle(0, 0, plateImageOriginal.Width, novoMaxY);
+                    Bitmap plateImageRecortada = plateImageOriginal.Clone(novoRecorte, plateImageOriginal.PixelFormat);
+
+                    // Reprocessar com a imagem recortada
+                    Bitmap dilatedPlateImageRecortada = ProcessarPlaca(plateImageRecortada, otsu);
+                    caracteres = SegmentarEReconhecerCaracteres(dilatedPlateImageRecortada);
+                    Console.WriteLine("Número de caracteres após reprocessamento: " + caracteres.Count);
+
+                    // Atualiza dilatedPlateImage caso tenha tido sucesso
+                    dilatedPlateImage = dilatedPlateImageRecortada;
+                }
+
+                // Ajuste da contagem de caracteres (se necessário)
+                if (caracteres.Count > 7)
+                {
                     caracteres.RemoveRange(0, caracteres.Count - 7);
                 }
 
-                for(int i = 0; i < caracteres.Count; i++) {
-                    // Desenhar retângulo ao redor do caractere na imagem da placa
+                StringBuilder placaBuilder = new StringBuilder();
+                for (int i = 0; i < caracteres.Count; i++)
+                {
                     desenhaRetangulo(dilatedPlateImage, caracteres[i].Pini, caracteres[i].Pfim, Color.FromArgb(0, 255, 0));
-                    ClassificacaoCaracteres classificaChar = new ClassificacaoCaracteres(caracteres[i].Imagem.Height, caracteres[i].Imagem.Width, i > 2 ? 1 : 2, 'S');
+                    ClassificacaoCaracteres classificaChar = new ClassificacaoCaracteres(
+                        caracteres[i].Imagem.Height,
+                        caracteres[i].Imagem.Width,
+                        i > 2 ? 1 : 2, 'S');
                     String transicao = classificaChar.retornaTransicaoHorizontal(caracteres[i].Imagem);
                     char caractere = classificaChar.reconheceCaractereTransicao_2pixels(transicao);
-                    placa = placa + caractere;
+                    placaBuilder.Append(caractere);
                 }
+
+                placa = placaBuilder.ToString();
 
                 // Atualizar imageBitmapDest com a imagem da placa processada
                 imageBitmapDest.Dispose();
@@ -396,6 +374,50 @@ namespace ProjEncontraPlaca
             {
                 Console.WriteLine("Erro durante o processamento: " + ex.Message);
             }
+        }
+
+        private static Bitmap ProcessarPlaca(Bitmap plateImage, Otsu otsu)
+        {
+            // Aplicar Otsu
+            otsu.Convert2GrayScaleFast(plateImage);
+            int plateThreshold = otsu.getOtsuThreshold(plateImage);
+            otsu.threshold(plateImage, plateThreshold);
+
+            // Aplicar Dilatação Condicional
+            Bitmap dilatedPlateImage = ConditionalDilation(plateImage, whitePixelDensityThreshold: 0.15);
+            return dilatedPlateImage;
+        }
+
+        private static List<Caracter> SegmentarEReconhecerCaracteres(Bitmap dilatedPlateImage)
+        {
+            List<Point> plateListaPini = new List<Point>();
+            List<Point> plateListaPfim = new List<Point>();
+
+            Bitmap plateImageClone = (Bitmap)dilatedPlateImage.Clone();
+            Filtros.segmentar8conectado(plateImageClone, dilatedPlateImage, plateListaPini, plateListaPfim);
+
+            List<Caracter> caracteres = new List<Caracter>();
+            for (int i = 0; i < plateListaPini.Count; i++)
+            {
+                int charAltura = plateListaPfim[i].Y - plateListaPini[i].Y;
+                int charLargura = plateListaPfim[i].X - plateListaPini[i].X;
+
+                if (charAltura > 10 && charAltura < 100 && charLargura > 2 && charLargura < 50)
+                {
+                    Caracter c = new Caracter
+                    {
+                        Pini = plateListaPini[i],
+                        Pfim = plateListaPfim[i],
+                        CentroX = (plateListaPini[i].X + plateListaPfim[i].X) / 2.0f,
+                        Imagem = Filtros.segmentaRoI(dilatedPlateImage, plateListaPini[i].X, plateListaPini[i].Y, charLargura, charAltura)
+                    };
+                    caracteres.Add(c);
+                }
+            }
+
+            // Ordenar caracteres pela posição X
+            caracteres.Sort((a, b) => a.CentroX.CompareTo(b.CentroX));
+            return caracteres;
         }
         public static Bitmap Dilation(Bitmap binaryImage, int iterations = 1)
         {

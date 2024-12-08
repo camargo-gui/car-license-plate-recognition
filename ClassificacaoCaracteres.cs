@@ -33,8 +33,8 @@ namespace ProjEncontraPlaca
                 for (int i = 0; i < n_classes; i++)
                     classes[i] = new Classe(dig_numeros[i], n_dim);
                 if (flag == 'S')
-                    monta_arq_aprendizado(dig_numeros, @"..\..\..\numeros.png", @"..\..\..\numeros.txt");
-                inicializa_classificador_2pixels(@"..\..\..\numeros.txt");
+                    monta_arq_aprendizado(dig_numeros, @"..\..\numeros.png", @"..\..\numeros.txt");
+                inicializa_classificador_2pixels(@"..\..\numeros.txt");
             }
             else
             {
@@ -44,8 +44,8 @@ namespace ProjEncontraPlaca
                 for (int i = 0; i < n_classes; i++)
                     classes[i] = new Classe(dig_letras[i], n_dim);
                 if (flag == 'S')
-                    monta_arq_aprendizado(dig_letras, @"..\..\..\letras.png", @"..\..\..\letras.txt");
-                inicializa_classificador_2pixels(@"..\..\..\letras.txt");
+                    monta_arq_aprendizado(dig_letras, @"..\..\letras.png", @"..\..\letras.txt");
+                inicializa_classificador_2pixels(@"..\..\letras.txt");
             }
         }
 
